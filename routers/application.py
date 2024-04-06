@@ -26,12 +26,21 @@ def get_endpoint_ip(url: str) -> str:
     except socket.gaierror:
         return "IP not found"
 
-    
+def determine_stability(endpointId: int, db: Session):
+    endpoint = db.query(DbEndpoint).options(joinedload(DbEndpoint.log)).filter(DbEndpoint.uid == endpointId).first()
+    if endpoint:
+        log_statuses = [log.status for log in endpoint.log[-10:]] 
+        if all(status in ['200', '302'] for status in log_statuses):
+            return "Stable"
+        elif any(status not in ['200', '302'] for status in log_statuses):
+            return "Unstable"
+    else:
+        return "Endpoint not found"
+
 
 async def monitor_endpoints(app_id: int, refresh_interval: int, time_to_keep: int, db: Session):
     while True:
         try:
-            print(f"REFRESH {refresh_interval}")
             await asyncio.sleep(refresh_interval)
             app = db.query(DbApplication).filter(DbApplication.uid == app_id).first()
             if app:
@@ -43,16 +52,15 @@ async def monitor_endpoints(app_id: int, refresh_interval: int, time_to_keep: in
                     path = "https://" + app.baseUrl + "/" + relativeUrl
                     print(path)
                     response_time = .001
-                    start = time.time()
                     start_time = current_time
                     try:
                         response = requests.get(path)
                         response.raise_for_status()
-                        status = "ok"
                         response_time = response.elapsed.total_seconds()
+                        status = response.status_code
                     except requests.RequestException as e:
-                        status = "down"
                         response_time = response.elapsed.total_seconds()
+                        status = response.status_code
                     log = DbEndpointLog(
                         responseTime=response_time,
                         status=status,
@@ -60,8 +68,13 @@ async def monitor_endpoints(app_id: int, refresh_interval: int, time_to_keep: in
                         timestamp=start_time
                     )
                     db.add(log)
-                
-                print(f"TIME TO KEEP: {time_to_keep}")
+                    
+                state = "Down"
+                if endpoint.log:
+                    state = determine_stability(endpoint.uid, db)
+                app.status = state
+                db.commit()
+                    
                 oldest_allowed_time = current_time - timedelta(seconds=time_to_keep)
                 db.query(DbEndpointLog).filter(DbEndpointLog.timestamp < oldest_allowed_time).delete()
                 db.commit()
@@ -70,6 +83,9 @@ async def monitor_endpoints(app_id: int, refresh_interval: int, time_to_keep: in
                 break
         except Exception as e:
             print(f"An error occurred: {e}")
+            state = "Down"
+            app.status = state
+            db.commit()
             continue
 
         
@@ -85,6 +101,8 @@ def time_to_seconds(time_str: str) -> int:
     elif unit == 'hours':
         return value * 60 * 60
     elif unit == 'days':
+        return value * 60 * 60 * 24
+    elif unit == 'day':
         return value * 60 * 60 * 24
     else:
         raise ValueError("Invalid time unit. Expected 'sec' or 'min'")
@@ -105,7 +123,7 @@ async def add_application(item: Application, background_tasks: BackgroundTasks, 
 
     app = DbApplication(
         name=item.name,
-        status="UP",
+        status="Stable",
         baseUrl=item.baseUrl,
         refreshInterval = item.refreshInterval,
         timeToKeep = item.timeToKeep,
