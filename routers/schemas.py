@@ -5,7 +5,7 @@ class Bug(BaseModel):
     uid: int = None
     description: str
     timestamp: str = None
-    application_id: int = None
+    applicationId: int = None
     
     class Config:
         from_attributes = True
@@ -24,7 +24,7 @@ class Endpoint(BaseModel):
     uid: int = None
     relativeUrl: str
     status: str = ""
-    application_id: int = None
+    applicationId: int = None
     log: List[EndpointLog] = []
     
     class Config:

@@ -10,7 +10,7 @@ import requests
 import socket
 from auth.auth import get_payload
 from datetime import datetime, timedelta
-from sqlalchemy import and_, or_
+from sqlalchemy import and_, or_, func
 from sqlalchemy.orm import joinedload
 
 router = APIRouter(
@@ -26,6 +26,7 @@ def get_endpoint_ip(url: str) -> str:
     except socket.gaierror:
         return "IP not found"
 
+    
 
 async def monitor_endpoints(app_id: int, refresh_interval: int, time_to_keep: int, db: Session):
     while True:
@@ -47,14 +48,14 @@ async def monitor_endpoints(app_id: int, refresh_interval: int, time_to_keep: in
                     try:
                         response = requests.get(path)
                         response.raise_for_status()
-                        response_time = time.time() - start
-                        print(f"App: {app.name}, Endpoint: {endpoint.relativeUrl}, Response Time: {response_time}")
+                        status = "ok"
+                        response_time = response.elapsed.total_seconds()
                     except requests.RequestException as e:
-                        response_time = time.time() - start
-                        print(f"App: {app.name}, Endpoint: {endpoint.relativeUrl}, Error: {e}, Response Time: {response_time}")
+                        status = "down"
+                        response_time = response.elapsed.total_seconds()
                     log = DbEndpointLog(
                         responseTime=response_time,
-                        status="OK",
+                        status=status,
                         endpointId=endpoint.uid,
                         timestamp=start_time
                     )
@@ -118,7 +119,7 @@ async def add_application(item: Application, background_tasks: BackgroundTasks, 
         endpoint = DbEndpoint(
             relativeUrl=endpoint_data.relativeUrl,
             status=endpoint_data.status,
-            application_id=app.uid
+            applicationId=app.uid
         )
         db.add(endpoint)
     db.commit()
@@ -142,7 +143,7 @@ async def add_application(item: Application, background_tasks: BackgroundTasks, 
 @router.get("/search")
 def search_application(query: str, db: Session = Depends(get_db)):
     string = f"%{query}%"  
-    apps = db.query(DbApplication).filter(or_(DbApplication.baseUrl.like(string), DbApplication.name.like(string))).all()
+    apps = db.query(DbApplication).filter(or_(func.lower(DbApplication.baseUrl).like(string.lower()), func.lower(DbApplication.name).like(string.upper()))).all()
     return apps
 
 

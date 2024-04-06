@@ -60,7 +60,7 @@ class DbBug(Base):
     description = Column(String)
     timestamp = Column(DateTime, default=datetime.utcnow)
     
-    application_id = Column(Integer, ForeignKey('application.uid', ondelete='CASCADE'))
+    applicationId = Column(Integer, ForeignKey('application.uid', ondelete='CASCADE'))
     application = relationship("DbApplication", back_populates="bugs", cascade="all, delete")
 
 class DbEndpoint(Base):
@@ -71,5 +71,5 @@ class DbEndpoint(Base):
     
     log = relationship("DbEndpointLog", back_populates="endpoint", cascade="all, delete")
     
-    application_id = Column(Integer, ForeignKey('application.uid', ondelete='CASCADE'))
+    applicationId = Column(Integer, ForeignKey('application.uid', ondelete='CASCADE'))
     application = relationship("DbApplication", back_populates="endpoints", cascade="all, delete")
