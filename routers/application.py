@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from sqlalchemy.orm import Session
-from routers.schemas import Application
+from routers.schemas import Application, UserProfile
 from database.database import get_db
 from database.models import DbApplication, DbEndpoint, DbIpInfo, DbUser, DbEndpointLog
 from typing import List
@@ -11,6 +11,7 @@ import socket
 from auth.auth import get_payload
 from datetime import datetime, timedelta
 from sqlalchemy import and_, or_
+from sqlalchemy.orm import joinedload
 
 router = APIRouter(
     prefix="/application",
@@ -144,4 +145,29 @@ def search_application(query: str, db: Session = Depends(get_db)):
     apps = db.query(DbApplication).filter(or_(DbApplication.baseUrl.like(string), DbApplication.name.like(string))).all()
     return apps
 
-    
+
+
+
+@router.put("/{id}")
+def edit_application(id: int, item: Application, db: Session = Depends(get_db)) -> Application:
+    app = db.query(DbApplication).options(joinedload(DbApplication.endpoints)).filter(DbApplication.uid == id).first()
+    if app:
+        app.name = item.name
+        app.endpoints.clear()
+        app.endpoints.extend(item.endpoints)
+        app.baseUrl = item.baseUrl
+        
+        db.commit()
+        
+        return app
+    else:
+        raise HTTPException(status_code=400, detail="App with this id does not exist")
+
+
+
+@router.delete("/{id}")
+def delete_application(id: int, db: Session = Depends(get_db)):
+    print(f"{id}")
+    db.query(DbApplication).filter(DbApplication.uid == id).delete()
+    db.commit()
+    return {"message": "deleted"}

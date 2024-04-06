@@ -9,12 +9,23 @@ class Bug(BaseModel):
     
     class Config:
         from_attributes = True
+        
+class EndpointLog(BaseModel):
+    uid: int = None
+    responseTime: float = None
+    status: str = None
+    endpointId: int = None
+    
+    class Config:
+        from_attributes = True
+
     
 class Endpoint(BaseModel):
     uid: int = None
     relativeUrl: str
     status: str = ""
     application_id: int = None
+    log: List[EndpointLog] = []
     
     class Config:
         from_attributes = True 
@@ -55,14 +66,5 @@ class UserProfile(BaseModel):
     class Config:
         from_attributes = True
       
-class EndpointLog(BaseModel):
-    uid: int = None
-    responseTime: float = None
-    status: str = None
-    endpointId: int = None
-    
-    class Config:
-        from_attributes = True
-
 
 

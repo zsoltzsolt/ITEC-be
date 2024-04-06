@@ -12,15 +12,15 @@ class DbApplication(Base):
     refreshInterval = Column(String)
     timeToKeep = Column(String)
     
-    ipInfo = relationship("DbIpInfo", back_populates="application", uselist=False)
+    ipInfo = relationship("DbIpInfo", back_populates="application", uselist=False, cascade="all, delete")
     
-    userId = Column(Integer, ForeignKey('user.uid'))
-    owner = relationship("DbUser", back_populates="addedApplications", overlaps="user")
-    user = relationship("DbUser", back_populates="developedApplications", overlaps="addedApplications")
+    userId = Column(Integer, ForeignKey('user.uid', ondelete='CASCADE'))
+    owner = relationship("DbUser", back_populates="addedApplications", overlaps="user", cascade="all, delete")
+    user = relationship("DbUser", back_populates="developedApplications", overlaps="addedApplications", cascade="all, delete")
     
     bugs = relationship("DbBug", back_populates="application", cascade="all, delete")
     
-    endpoints = relationship("DbEndpoint", back_populates="application",  cascade="all, delete")
+    endpoints = relationship("DbEndpoint", back_populates="application", cascade="all, delete")
     
 class DbIpInfo(Base):
     __tablename__ = "ipInfo"
@@ -29,8 +29,8 @@ class DbIpInfo(Base):
     location = Column(String)
     timezone = Column(String)
     
-    applicationId = Column(Integer, ForeignKey('application.uid'))
-    application = relationship("DbApplication", back_populates="ipInfo", uselist=False)
+    applicationId = Column(Integer, ForeignKey('application.uid', ondelete='CASCADE'))
+    application = relationship("DbApplication", back_populates="ipInfo", cascade="all, delete", uselist=False)
     
 class DbEndpointLog(Base):
     __tablename__ = "endpointLog"
@@ -39,8 +39,8 @@ class DbEndpointLog(Base):
     status = Column(String)
     timestamp = Column(DateTime, default=datetime.utcnow)
     
-    endpointId = Column(Integer, ForeignKey('endpoint.uid'))
-    endpoint = relationship("DbEndpoint", back_populates="log")
+    endpointId = Column(Integer, ForeignKey('endpoint.uid', ondelete='CASCADE'))
+    endpoint = relationship("DbEndpoint", back_populates="log", cascade="all, delete")
 
 
 class DbUser(Base):
@@ -60,8 +60,8 @@ class DbBug(Base):
     description = Column(String)
     timestamp = Column(DateTime, default=datetime.utcnow)
     
-    application_id = Column(Integer, ForeignKey('application.uid'))
-    application = relationship("DbApplication", back_populates="bugs")
+    application_id = Column(Integer, ForeignKey('application.uid', ondelete='CASCADE'))
+    application = relationship("DbApplication", back_populates="bugs", cascade="all, delete")
 
 class DbEndpoint(Base):
     __tablename__ = "endpoint"
@@ -71,5 +71,5 @@ class DbEndpoint(Base):
     
     log = relationship("DbEndpointLog", back_populates="endpoint", cascade="all, delete")
     
-    application_id = Column(Integer, ForeignKey('application.uid'))
-    application = relationship("DbApplication", back_populates="endpoints")
+    application_id = Column(Integer, ForeignKey('application.uid', ondelete='CASCADE'))
+    application = relationship("DbApplication", back_populates="endpoints", cascade="all, delete")
