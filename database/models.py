@@ -9,6 +9,7 @@ class DbApplication(Base):
     name = Column(String, unique=True)
     status = Column(String)
     baseUrl = Column(String)
+    ip = Column(String)
     
     userId = Column(Integer, ForeignKey('user.uid'))
     owner = relationship("DbUser", back_populates="applications", overlaps="user")

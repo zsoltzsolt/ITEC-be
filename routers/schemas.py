@@ -24,6 +24,7 @@ class Application(BaseModel):
     name: str
     status: str = None
     baseUrl: str
+    ip: str = None
     userId: int = None
     bugs: List[Bug] = []
     endpoints: List[Endpoint] = [] 
