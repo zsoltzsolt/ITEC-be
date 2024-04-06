@@ -37,7 +37,7 @@ class DbEndpointLog(Base):
     status = Column(Float)
     
     endpointId = Column(Integer, ForeignKey('endpoint.uid'))
-    endpoint = relationship("DbEndpoint", back_populates="log", uselist=False)
+    endpoint = relationship("DbEndpoint", back_populates="log")
 
 
 class DbUser(Base):
@@ -66,7 +66,7 @@ class DbEndpoint(Base):
     relativeUrl = Column(String)
     status = Column(String)
     
-    log = relationship("DbEndpointLog", back_populates="endpoint", uselist=False)
+    log = relationship("DbEndpointLog", back_populates="endpoint", cascade="all, delete")
     
     application_id = Column(Integer, ForeignKey('application.uid'))
     application = relationship("DbApplication", back_populates="endpoints")

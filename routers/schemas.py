@@ -49,6 +49,12 @@ class UserProfile(BaseModel):
 
     class Config:
         from_attributes = True
+      
+class DbEndpointLog(BaseModel):
+    uid: int = None
+    responseTime: float = None
+    status: float = None
+    endpointId: int = None
 
 
 

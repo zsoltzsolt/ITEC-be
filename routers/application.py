@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from sqlalchemy.orm import Session
 from routers.schemas import Application
 from database.database import get_db
-from database.models import DbApplication, DbEndpoint, DbIpInfo, DbUser
+from database.models import DbApplication, DbEndpoint, DbIpInfo, DbUser, DbEndpointLog
 from typing import List
 import asyncio
 import time 
@@ -26,26 +26,38 @@ def get_endpoint_ip(url: str) -> str:
 
 async def monitor_endpoints(app_id: int, db: Session):
     while True:
-        await asyncio.sleep(5) 
-        app = db.query(DbApplication).filter(DbApplication.uid == app_id).first()
-        if app:
-            for endpoint in app.endpoints:
-                start_time = time.time()
-                relativeUrl = endpoint.relativeUrl
-                if relativeUrl[0] == '/':
-                    relativeUrl = relativeUrl[1:]
-                path = "https://" + app.baseUrl + "/" + relativeUrl
-                print(path)
-                response = requests.get(path)
-                if response.status_code == 200:
-                    response_time = time.time() - start_time
-                    print(f"App: {app.name}, Endpoint: {endpoint.relativeUrl}, Response Time: {response_time}")
-                else:
-                    print(f"App: {app.name}, Endpoint: {endpoint.relativeUrl}, Error: {response.status_code}")
-            print()  
-        else:
-            print(f"App does not exist")
-            break   
+        try:
+            await asyncio.sleep(1)
+            app = db.query(DbApplication).filter(DbApplication.uid == app_id).first()
+            if app:
+                for endpoint in app.endpoints:
+                    start_time = time.time()
+                    relativeUrl = endpoint.relativeUrl
+                    if relativeUrl[0] == '/':
+                        relativeUrl = relativeUrl[1:]
+                    path = "https://" + app.baseUrl + "/" + relativeUrl
+                    print(path)
+                    #response_time=0
+                    try:
+                        response = requests.get(path)
+                        response.raise_for_status()  
+                        response_time = time.time() 
+                        print(f"App: {app.name}, Endpoint: {endpoint.relativeUrl}, Response Time: {response_time}")
+                    except requests.RequestException as e:
+                        print(f"App: {app.name}, Endpoint: {endpoint.relativeUrl}, Error: {e}")
+                    log = DbEndpointLog(
+                        responseTime=1,
+                        status=f"{response.status_code}",
+                        endpointId=endpoint.uid
+                    )
+                    db.add(log)
+                    db.commit()
+            else:
+                print(f"App does not exist")
+                break
+        except Exception as e:
+            print(f"An error occurred: {e}")
+            continue 
 
 
 @router.get("/all")
