@@ -9,6 +9,7 @@ import time
 import requests
 import socket
 from auth.auth import get_payload
+from datetime import datetime
 
 router = APIRouter(
     prefix="/application",
@@ -24,10 +25,11 @@ def get_endpoint_ip(url: str) -> str:
         return "IP not found"
 
 
-async def monitor_endpoints(app_id: int, db: Session):
+async def monitor_endpoints(app_id: int, refresh_interval: int, time_to_keep:int, db: Session):
     while True:
         try:
-            await asyncio.sleep(1)
+            print(f"REFRESH {refresh_interval}")
+            await asyncio.sleep(refresh_interval)
             app = db.query(DbApplication).filter(DbApplication.uid == app_id).first()
             if app:
                 for endpoint in app.endpoints:
@@ -37,7 +39,8 @@ async def monitor_endpoints(app_id: int, db: Session):
                     path = "https://" + app.baseUrl + "/" + relativeUrl
                     print(path)
                     response_time=.001
-                    start = time.time() 
+                    start = time.time()
+                    start_time = datetime.utcnow() 
                     try:
                         response = requests.get(path)
                         response.raise_for_status()  
@@ -49,7 +52,8 @@ async def monitor_endpoints(app_id: int, db: Session):
                     log = DbEndpointLog(
                         responseTime=response_time,
                         status=f"{response.status_code}",
-                        endpointId=endpoint.uid
+                        endpointId=endpoint.uid,
+                        timestamp=start_time
                     )
                     db.add(log)
                     db.commit()
@@ -69,6 +73,8 @@ def time_to_seconds(time_str: str) -> int:
         return value
     elif unit == 'min':
         return value * 60
+    elif unit == 'days':
+        return value * 60 * 60 * 24
     else:
         raise ValueError("Invalid time unit. Expected 'sec' or 'min'")
 
@@ -118,6 +124,6 @@ async def add_application(item: Application, background_tasks: BackgroundTasks, 
     
     db.refresh(app)
     
-    background_tasks.add_task(monitor_endpoints, app_id=app.uid, db=db)
+    background_tasks.add_task(monitor_endpoints, app_id=app.uid, refresh_interval=time_to_seconds(app.refreshInterval), time_to_keep=time_to_seconds(app.timeToKeep), db=db)
     
     return app
