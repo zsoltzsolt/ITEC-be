@@ -14,6 +14,13 @@ router = APIRouter(
     tags=["Application"]
 )
 
+def get_endpoint_ip(url: str) -> str:
+    try:
+        print(f"{url}")
+        ip_address = socket.gethostbyname(url)
+        return ip_address
+    except socket.gaierror:
+        return "IP not found"
 
 
 async def monitor_endpoints(app_id: int, db: Session):
