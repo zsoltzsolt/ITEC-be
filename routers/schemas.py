@@ -13,18 +13,25 @@ class Bug(BaseModel):
 class Endpoint(BaseModel):
     uid: int = None
     relativeUrl: str
-    status: str = None
+    status: str = ""
     application_id: int = None
     
     class Config:
         from_attributes = True 
+        
+class IpInfo(BaseModel):
+    uid: int
+    address: str
+    location: str
+    timezone: str  
+    applicationId: int
 
 class Application(BaseModel):
     uid: int = None
     name: str
     status: str = None
     baseUrl: str
-    ip: str = None
+    ipInfo: IpInfo = None
     userId: int = None
     bugs: List[Bug] = []
     endpoints: List[Endpoint] = [] 
