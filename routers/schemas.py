@@ -58,7 +58,7 @@ class UserProfile(BaseModel):
 class EndpointLog(BaseModel):
     uid: int = None
     responseTime: float = None
-    status: float = None
+    status: str = None
     endpointId: int = None
     
     class Config:

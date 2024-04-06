@@ -10,7 +10,7 @@ import requests
 import socket
 from auth.auth import get_payload
 from datetime import datetime, timedelta
-from sqlalchemy import and_
+from sqlalchemy import and_, or_
 
 router = APIRouter(
     prefix="/application",
@@ -136,3 +136,12 @@ async def add_application(item: Application, background_tasks: BackgroundTasks, 
     background_tasks.add_task(monitor_endpoints, app_id=app.uid, refresh_interval=time_to_seconds(app.refreshInterval), time_to_keep=time_to_seconds(app.timeToKeep), db=db)
     
     return app
+
+
+@router.get("/search")
+def search_application(query: str, db: Session = Depends(get_db)):
+    string = f"%{query}%"  
+    apps = db.query(DbApplication).filter(or_(DbApplication.baseUrl.like(string), DbApplication.name.like(string))).all()
+    return apps
+
+    

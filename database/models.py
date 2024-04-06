@@ -36,7 +36,7 @@ class DbEndpointLog(Base):
     __tablename__ = "endpointLog"
     uid = Column(Integer, primary_key=True, index=True)
     responseTime = Column(Float)
-    status = Column(Float)
+    status = Column(String)
     timestamp = Column(DateTime, default=datetime.utcnow)
     
     endpointId = Column(Integer, ForeignKey('endpoint.uid'))
