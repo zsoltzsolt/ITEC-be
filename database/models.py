@@ -15,8 +15,8 @@ class DbApplication(Base):
     ipInfo = relationship("DbIpInfo", back_populates="application", uselist=False)
     
     userId = Column(Integer, ForeignKey('user.uid'))
-    owner = relationship("DbUser", back_populates="applications", overlaps="user")
-    user = relationship("DbUser", back_populates="developed_applications", overlaps="applications")
+    owner = relationship("DbUser", back_populates="addedApplications", overlaps="user")
+    user = relationship("DbUser", back_populates="developedApplications", overlaps="addedApplications")
     
     bugs = relationship("DbBug", back_populates="application", cascade="all, delete")
     
@@ -49,9 +49,9 @@ class DbUser(Base):
     keyclockId = Column(String)
     username = Column(String)
     
-    applications = relationship("DbApplication", back_populates="owner", cascade="all, delete", overlaps="developed_applications")
+    addedApplications = relationship("DbApplication", back_populates="owner", cascade="all, delete", overlaps="developedApplications")
     
-    developed_applications = relationship("DbApplication", back_populates="user", cascade="all, delete", overlaps="owner")
+    developedApplications = relationship("DbApplication", back_populates="user", cascade="all, delete", overlaps="owner")
 
 class DbBug(Base):
     __tablename__ = "bug"

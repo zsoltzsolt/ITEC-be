@@ -9,7 +9,8 @@ import time
 import requests
 import socket
 from auth.auth import get_payload
-from datetime import datetime
+from datetime import datetime, timedelta
+from sqlalchemy import and_
 
 router = APIRouter(
     prefix="/application",
@@ -25,25 +26,26 @@ def get_endpoint_ip(url: str) -> str:
         return "IP not found"
 
 
-async def monitor_endpoints(app_id: int, refresh_interval: int, time_to_keep:int, db: Session):
+async def monitor_endpoints(app_id: int, refresh_interval: int, time_to_keep: int, db: Session):
     while True:
         try:
             print(f"REFRESH {refresh_interval}")
             await asyncio.sleep(refresh_interval)
             app = db.query(DbApplication).filter(DbApplication.uid == app_id).first()
             if app:
+                current_time = datetime.utcnow()
                 for endpoint in app.endpoints:
                     relativeUrl = endpoint.relativeUrl
                     if relativeUrl[0] == '/':
                         relativeUrl = relativeUrl[1:]
                     path = "https://" + app.baseUrl + "/" + relativeUrl
                     print(path)
-                    response_time=.001
+                    response_time = .001
                     start = time.time()
-                    start_time = datetime.utcnow() 
+                    start_time = current_time
                     try:
                         response = requests.get(path)
-                        response.raise_for_status()  
+                        response.raise_for_status()
                         response_time = time.time() - start
                         print(f"App: {app.name}, Endpoint: {endpoint.relativeUrl}, Response Time: {response_time}")
                     except requests.RequestException as e:
@@ -51,18 +53,23 @@ async def monitor_endpoints(app_id: int, refresh_interval: int, time_to_keep:int
                         print(f"App: {app.name}, Endpoint: {endpoint.relativeUrl}, Error: {e}, Response Time: {response_time}")
                     log = DbEndpointLog(
                         responseTime=response_time,
-                        status=f"{response.status_code}",
+                        status="OK",
                         endpointId=endpoint.uid,
                         timestamp=start_time
                     )
                     db.add(log)
-                    db.commit()
+                
+                print(f"TIME TO KEEP: {time_to_keep}")
+                oldest_allowed_time = current_time - timedelta(seconds=time_to_keep)
+                db.query(DbEndpointLog).filter(DbEndpointLog.timestamp < oldest_allowed_time).delete()
+                db.commit()
             else:
                 print(f"App does not exist")
                 break
         except Exception as e:
             print(f"An error occurred: {e}")
-            continue 
+            continue
+
         
 def time_to_seconds(time_str: str) -> int:
     parts = time_str.split()
@@ -73,6 +80,8 @@ def time_to_seconds(time_str: str) -> int:
         return value
     elif unit == 'min':
         return value * 60
+    elif unit == 'hours':
+        return value * 60 * 60
     elif unit == 'days':
         return value * 60 * 60 * 24
     else:

@@ -25,6 +25,9 @@ class IpInfo(BaseModel):
     location: str
     timezone: str  
     applicationId: int
+    
+    class Config:
+        from_attributes = True
 
 class Application(BaseModel):
     uid: int = None
@@ -46,8 +49,8 @@ class UserProfile(BaseModel):
     uid: int = None
     username: str = None
     keyclockId: str = None
-    applications: List[Application] = []  
-    developed_applications: List[Application] = []
+    addedApplications: List[Application] = []  
+    developedApplications: List[Application] = []
 
     class Config:
         from_attributes = True
@@ -57,6 +60,9 @@ class EndpointLog(BaseModel):
     responseTime: float = None
     status: float = None
     endpointId: int = None
+    
+    class Config:
+        from_attributes = True
 
 
 
