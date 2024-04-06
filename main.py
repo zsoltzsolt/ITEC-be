@@ -1,19 +1,22 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
-from database import models
-from database.database import engine
-from fastapi import Depends
-from auth.auth import get_user_info
+from database.database import engine, get_db
+from database.models import DbApplication 
 from routers import application, user
+from auth.auth import get_user_info
+from datetime import datetime, timedelta
+from sqlalchemy.orm import Session
+from routers.application import start_monitoring
+import httpx
 
 app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
-    allow_origins = ["*"],
-    allow_methods = ["*"],
-    allow_headers = ["*"]
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"]
 )
 
 app.include_router(user.router)
@@ -21,10 +24,11 @@ app.include_router(application.router)
 
 @app.get("/")
 def route():
-    return {"message": "works"}
+    return("hey")
 
 @app.get("/secure")
-async def root(user = Depends(get_user_info)):
-    return {"message": "hey"}
+async def root(user=Depends(get_user_info)):
+    return {"message": f"Hello, {user['username']}!"}
 
-models.Base.metadata.create_all(engine)
+DbApplication.metadata.create_all(engine)
+

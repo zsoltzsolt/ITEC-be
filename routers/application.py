@@ -39,6 +39,7 @@ def determine_stability(endpointId: int, db: Session):
 
 
 async def monitor_endpoints(app_id: int, refresh_interval: int, time_to_keep: int, db: Session):
+    print(f"{app_id}")
     while True:
         try:
             await asyncio.sleep(refresh_interval)
@@ -50,7 +51,6 @@ async def monitor_endpoints(app_id: int, refresh_interval: int, time_to_keep: in
                     if relativeUrl[0] == '/':
                         relativeUrl = relativeUrl[1:]
                     path = "https://" + app.baseUrl + "/" + relativeUrl
-                    print(path)
                     response_time = .001
                     start_time = current_time
                     try:
@@ -76,7 +76,10 @@ async def monitor_endpoints(app_id: int, refresh_interval: int, time_to_keep: in
                 db.commit()
                     
                 oldest_allowed_time = current_time - timedelta(seconds=time_to_keep)
-                db.query(DbEndpointLog).filter(DbEndpointLog.timestamp < oldest_allowed_time).delete()
+                db.query(DbEndpointLog).filter(
+                    DbEndpointLog.timestamp < oldest_allowed_time,
+                    DbEndpointLog.endpointId.in_([ep.uid for ep in app.endpoints])
+                ).delete()
                 db.commit()
             else:
                 print(f"App does not exist")
@@ -87,6 +90,25 @@ async def monitor_endpoints(app_id: int, refresh_interval: int, time_to_keep: in
             app.status = state
             db.commit()
             continue
+
+async def monitor_and_start(app_id: int, refresh_interval: int, time_to_keep: int, db: Session):
+    await monitor_endpoints(app_id, refresh_interval, time_to_keep, db)
+
+@router.post("/start")
+async def start_monitoring(background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+    applications = db.query(DbApplication).all()
+    tasks = []
+    for app in applications:
+        print(f"{app.name} started")
+        task = monitor_and_start(
+            app_id=app.uid,
+            refresh_interval=time_to_seconds(app.refreshInterval),
+            time_to_keep=time_to_seconds(app.timeToKeep),
+            db=db
+        )
+        tasks.append(task)
+    await asyncio.gather(*tasks)
+    return {"message": "Monitoring started for all applications."}
 
         
 def time_to_seconds(time_str: str) -> int:
