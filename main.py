@@ -4,7 +4,7 @@ from database import models
 from database.database import engine
 from fastapi import Depends
 from auth.auth import get_user_info
-from routers import user, endpoint
+from routers import application, user
 
 app = FastAPI()
 
@@ -17,7 +17,7 @@ app.add_middleware(
 )
 
 app.include_router(user.router)
-app.include_router(endpoint.router)
+app.include_router(application.router)
 
 @app.get("/")
 def route():

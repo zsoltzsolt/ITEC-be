@@ -3,11 +3,18 @@ from sqlalchemy.orm import Session
 from routers.schemas import Application
 from database.database import get_db
 from database.models import DbApplication, DbEndpoint
+from typing import List
 
 router = APIRouter(
     prefix="/application",
-    tags=["User"]
+    tags=["Application"]
 )
+
+@router.get("/all")
+async def get_all_applications(db: Session = Depends(get_db)) -> List[Application]:
+    applications = db.query(DbApplication)
+    return applications
+
 
 @router.post("/")
 async def add_application(item: Application, db: Session = Depends(get_db)) -> Application:
