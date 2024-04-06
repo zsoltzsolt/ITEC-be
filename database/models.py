@@ -10,13 +10,13 @@ class DbApplication(Base):
     status = Column(String)
     baseUrl = Column(String)
     
-    owner = relationship("DbUser", back_populates="applications")
+    userId = Column(Integer, ForeignKey('user.uid'))
+    owner = relationship("DbUser", back_populates="applications", overlaps="user")
+    user = relationship("DbUser", back_populates="developed_applications", overlaps="applications")
     
-    user = relationship("DbUser", back_populates="developed_applications")
+    bugs = relationship("DbBug", back_populates="application", cascade="all, delete")
     
-    bugs = relationship("DbBug", back_populates="application")
-    
-    endpoints = relationship("DbEndpoint", back_populates="application",)
+    endpoints = relationship("DbEndpoint", back_populates="application",  cascade="all, delete")
 
 
 class DbUser(Base):
@@ -24,11 +24,14 @@ class DbUser(Base):
     uid = Column(Integer, primary_key=True, index=True)
     keyclockId = Column(String)
     username = Column(String)
-    application_id = Column(Integer, ForeignKey("application.uid"))
     
-    applications = relationship("DbApplication", back_populates="owner", cascade="all, delete")
+    applications = relationship("DbApplication", back_populates="owner", cascade="all, delete", overlaps="developed_applications")
     
-    developed_applications = relationship("DbApplication", back_populates="user", cascade="all, delete")
+    developed_applications = relationship("DbApplication", back_populates="user", cascade="all, delete", overlaps="owner")
+
+
+
+
 
 
 class DbBug(Base):
@@ -39,7 +42,7 @@ class DbBug(Base):
     timestamp = Column(DateTime, default=datetime.utcnow)
     
     application_id = Column(Integer, ForeignKey('application.uid'))
-    application = relationship("DbApplication", back_populates="bugs", cascade="all, delete")
+    application = relationship("DbApplication", back_populates="bugs")
    
 class DbEndpoint(Base):
     __tablename__ = "endpoint"

@@ -25,7 +25,8 @@ async def add_application(item: Application, db: Session = Depends(get_db)) -> A
     app = DbApplication(
         name=item.name,
         status="UP",
-        baseUrl=item.baseUrl
+        baseUrl=item.baseUrl,
+        userId = 1
     )
     
     db.add(app)
