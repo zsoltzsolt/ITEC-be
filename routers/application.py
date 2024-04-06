@@ -31,22 +31,23 @@ async def monitor_endpoints(app_id: int, db: Session):
             app = db.query(DbApplication).filter(DbApplication.uid == app_id).first()
             if app:
                 for endpoint in app.endpoints:
-                    start_time = time.time()
                     relativeUrl = endpoint.relativeUrl
                     if relativeUrl[0] == '/':
                         relativeUrl = relativeUrl[1:]
                     path = "https://" + app.baseUrl + "/" + relativeUrl
                     print(path)
-                    #response_time=0
+                    response_time=.001
+                    start = time.time() 
                     try:
                         response = requests.get(path)
                         response.raise_for_status()  
-                        response_time = time.time() 
+                        response_time = time.time() - start
                         print(f"App: {app.name}, Endpoint: {endpoint.relativeUrl}, Response Time: {response_time}")
                     except requests.RequestException as e:
-                        print(f"App: {app.name}, Endpoint: {endpoint.relativeUrl}, Error: {e}")
+                        response_time = time.time() - start
+                        print(f"App: {app.name}, Endpoint: {endpoint.relativeUrl}, Error: {e}, Response Time: {response_time}")
                     log = DbEndpointLog(
-                        responseTime=1,
+                        responseTime=response_time,
                         status=f"{response.status_code}",
                         endpointId=endpoint.uid
                     )
@@ -58,6 +59,18 @@ async def monitor_endpoints(app_id: int, db: Session):
         except Exception as e:
             print(f"An error occurred: {e}")
             continue 
+        
+def time_to_seconds(time_str: str) -> int:
+    parts = time_str.split()
+    if len(parts) != 2:
+        raise ValueError("Invalid time format. Expected format: 'X sec' or 'Y min'")
+    value, unit = int(parts[0]), parts[1].lower()
+    if unit == 'sec':
+        return value
+    elif unit == 'min':
+        return value * 60
+    else:
+        raise ValueError("Invalid time unit. Expected 'sec' or 'min'")
 
 
 @router.get("/all")
@@ -77,6 +90,8 @@ async def add_application(item: Application, background_tasks: BackgroundTasks, 
         name=item.name,
         status="UP",
         baseUrl=item.baseUrl,
+        refreshInterval = item.refreshInterval,
+        timeToKeep = item.timeToKeep,
         userId = user.uid
     )
     

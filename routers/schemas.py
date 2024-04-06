@@ -32,6 +32,8 @@ class Application(BaseModel):
     status: str = None
     baseUrl: str
     ipInfo: IpInfo = None
+    refreshInterval:str = ""
+    timeToKeep:str = ""
     userId: int = None
     bugs: List[Bug] = []
     endpoints: List[Endpoint] = [] 
@@ -50,7 +52,7 @@ class UserProfile(BaseModel):
     class Config:
         from_attributes = True
       
-class DbEndpointLog(BaseModel):
+class EndpointLog(BaseModel):
     uid: int = None
     responseTime: float = None
     status: float = None

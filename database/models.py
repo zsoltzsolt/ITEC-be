@@ -9,6 +9,8 @@ class DbApplication(Base):
     name = Column(String, unique=True)
     status = Column(String)
     baseUrl = Column(String)
+    refreshInterval = Column(String)
+    timeToKeep = Column(String)
     
     ipInfo = relationship("DbIpInfo", back_populates="application", uselist=False)
     
