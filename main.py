@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, BackgroundTasks
+from fastapi import FastAPI, Depends, BackgroundTasks, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from database.database import engine, get_db
 from database.models import DbApplication 
@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
 from routers.application import start_monitoring
 import httpx
+import asyncio
 
 app = FastAPI()
 
@@ -29,6 +30,8 @@ def route():
 @app.get("/secure")
 async def root(user=Depends(get_user_info)):
     return {"message": f"Hello, {user['username']}!"}
+
+
 
 DbApplication.metadata.create_all(engine)
 

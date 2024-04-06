@@ -1,5 +1,6 @@
 from pydantic import BaseModel
 from typing import List
+from datetime import datetime
 
 class Bug(BaseModel):
     uid: int = None
@@ -15,6 +16,7 @@ class EndpointLog(BaseModel):
     responseTime: float = None
     status: str = None
     endpointId: int = None
+    timestamp: datetime = datetime.utcnow()
     
     class Config:
         from_attributes = True

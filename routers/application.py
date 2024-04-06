@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, WebSocket
 from sqlalchemy.orm import Session
 from routers.schemas import Application, UserProfile
 from database.database import get_db
@@ -12,11 +12,79 @@ from auth.auth import get_payload
 from datetime import datetime, timedelta
 from sqlalchemy import and_, or_, func
 from sqlalchemy.orm import joinedload
+import json
 
 router = APIRouter(
     prefix="/application",
     tags=["Application"]
 )
+
+        raise ValueError("Invalid time unit. Expected 'sec' or 'min'")
+
+@router.websocket("/{id}")
+async def websocket_endpoint(id: int, websocket: WebSocket, db: Session = Depends(get_db)):
+    await websocket.accept()
+    while True:
+        try:
+            last_app: Application = db.query(DbApplication).filter(DbApplication.uid == id).order_by(DbApplication.uid.desc()).first()
+        
+            refreshInterval = last_app.refreshInterval
+            await asyncio.sleep(0.95 * time_to_seconds(refreshInterval))
+        
+            if last_app:
+                app_data = {
+                    "uid": last_app.uid,
+                    "name": last_app.name,
+                    "status": last_app.status,
+                    "baseUrl": last_app.baseUrl,
+                    "ipInfo": {
+                        "uid": last_app.ipInfo.uid,
+                        "address": last_app.ipInfo.address,
+                        "location": last_app.ipInfo.location,
+                        "timezone": last_app.ipInfo.timezone,
+                        "applicationId": last_app.ipInfo.applicationId
+                    },
+                    "refreshInterval": f"{refreshInterval} sec",
+                    "timeToKeep": f"{last_app.timeToKeep} day",
+                    "userId": last_app.userId,
+                    "bugs": [],
+                    "endpoints": []
+                }
+            
+                for endpoint in last_app.endpoints:
+                    endpoint_data = {
+                        "uid": endpoint.uid,
+                        "relativeUrl": endpoint.relativeUrl,
+                        "status": "",
+                        "applicationId": endpoint.applicationId,
+                        "log": []
+                    }
+                
+                    latest_log = db.query(DbEndpointLog).filter(DbEndpointLog.endpointId == endpoint.uid).order_by(DbEndpointLog.timestamp.desc()).first()
+                
+                    if latest_log:
+                        log_data = {
+                            "uid": latest_log.uid,
+                            "responseTime": latest_log.responseTime,
+                            "status": latest_log.status,
+                            "endpointId": latest_log.endpointId,
+                            "timestamp": latest_log.timestamp.isoformat()
+                        }
+                        endpoint_data["log"].append(log_data)
+                
+                    app_data["endpoints"].append(endpoint_data)
+            
+                app_json = json.dumps(app_data)
+            
+
+                await websocket.send_text(app_json)
+            else:
+                await websocket.send_text("Application not found")
+                
+        except Exception as e:
+            continue
+            
+
 
 def get_endpoint_ip(url: str) -> str:
     try:
@@ -68,6 +136,7 @@ async def monitor_endpoints(app_id: int, refresh_interval: int, time_to_keep: in
                         timestamp=start_time
                     )
                     db.add(log)
+            
                     
                 state = "Down"
                 if endpoint.log:
@@ -111,23 +180,6 @@ async def start_monitoring(background_tasks: BackgroundTasks, db: Session = Depe
     return {"message": "Monitoring started for all applications."}
 
         
-def time_to_seconds(time_str: str) -> int:
-    parts = time_str.split()
-    if len(parts) != 2:
-        raise ValueError("Invalid time format. Expected format: 'X sec' or 'Y min'")
-    value, unit = int(parts[0]), parts[1].lower()
-    if unit == 'sec':
-        return value
-    elif unit == 'min':
-        return value * 60
-    elif unit == 'hours':
-        return value * 60 * 60
-    elif unit == 'days':
-        return value * 60 * 60 * 24
-    elif unit == 'day':
-        return value * 60 * 60 * 24
-    else:
-        raise ValueError("Invalid time unit. Expected 'sec' or 'min'")
 
 
 @router.get("/all")
@@ -187,12 +239,29 @@ def search_application(query: str, db: Session = Depends(get_db)):
     return apps
 
 
+from sqlalchemy.orm import joinedload
+from sqlalchemy import desc
+
+from sqlalchemy import desc
+
+from sqlalchemy.orm import joinedload
+from sqlalchemy import desc
+
 @router.get("/{id}")
 def get_application(id: int, db: Session = Depends(get_db)) -> Application:
-    app = db.query(DbApplication).options(joinedload(DbApplication.endpoints).joinedload(DbEndpoint.log)).filter(DbApplication.uid == id).first()
+    app = db.query(DbApplication).options(
+        joinedload(DbApplication.endpoints).joinedload(DbEndpoint.log)
+    ).filter(DbApplication.uid == id).first()
+    
     if app:
+        for endpoint in app.endpoints:
+            endpoint.log.sort(key=lambda x: x.timestamp, reverse=True)
         return app
     raise HTTPException(status_code=400, detail="App with this id does not exist")
+
+
+    
+
 
 @router.put("/{id}")
 def edit_application(id: int, item: Application, db: Session = Depends(get_db)) -> Application:
