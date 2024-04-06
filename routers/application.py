@@ -146,7 +146,12 @@ def search_application(query: str, db: Session = Depends(get_db)):
     return apps
 
 
-
+@router.get("/{id}")
+def get_application(id: int, db: Session = Depends(get_db)) -> Application:
+    app = db.query(DbApplication).options(joinedload(DbApplication.endpoints).joinedload(DbEndpoint.log)).filter(DbApplication.uid == id).first()
+    if app:
+        return app
+    raise HTTPException(status_code=400, detail="App with this id does not exist")
 
 @router.put("/{id}")
 def edit_application(id: int, item: Application, db: Session = Depends(get_db)) -> Application:
