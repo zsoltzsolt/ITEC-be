@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import List
+from typing import List, Optional
 from datetime import datetime
 
 class Bug(BaseModel):
@@ -47,7 +47,7 @@ class Application(BaseModel):
     name: str
     status: str = None
     baseUrl: str
-    ipInfo: IpInfo = None
+    ipInfo: Optional[IpInfo] = None
     refreshInterval:str = ""
     timeToKeep:str = ""
     userId: int = None
