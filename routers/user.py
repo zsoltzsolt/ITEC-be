@@ -15,6 +15,7 @@ router = APIRouter(
 
 @router.get("/me")
 async def get_profile(db: Session = Depends(get_db), payload = Depends(get_payload)) -> UserProfile:
+    print("here")
     token = payload.get("sub")
     user = db.query(DbUser).filter(DbUser.keyclockId == token).first()
     if(user is None):

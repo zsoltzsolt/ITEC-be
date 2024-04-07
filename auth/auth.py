@@ -8,8 +8,6 @@ from sqlalchemy.orm.session import Session
 from database.database import get_db
 from database.models import DbUser
 
-# We are using KEYCLOAK
-
 oauth2_scheme = OAuth2AuthorizationCodeBearer(
     authorizationUrl=settings.authorization_url, 
     tokenUrl=settings.token_url, 
@@ -25,7 +23,9 @@ keycloak_openid = KeycloakOpenID(
 
 async def get_idp_public_key():
     return (
+        "-----BEGIN PUBLIC KEY-----\n"
         f"{keycloak_openid.public_key()}"
+        "\n-----END PUBLIC KEY-----"
     )
 
 # Get the payload/token from keycloak

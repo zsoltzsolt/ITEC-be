@@ -39,7 +39,6 @@ async def monitor_endpoints(app_id: int, refresh_interval: int, time_to_keep: in
             await asyncio.sleep(refresh_interval)
             app = db.query(DbApplication).filter(DbApplication.uid == app_id).first()
             if app:
-                current_time = datetime.utcnow()
                 endpoint_statuses = []
                 
                 for endpoint in app.endpoints:
@@ -49,7 +48,6 @@ async def monitor_endpoints(app_id: int, refresh_interval: int, time_to_keep: in
                         relativeUrl = relativeUrl[1:]
                     path = "https://" + app.baseUrl + "/" + relativeUrl
                     response_time = .001
-                    start_time = current_time
                     try:
                         response = requests.get(path)
                         response.raise_for_status()
@@ -63,16 +61,17 @@ async def monitor_endpoints(app_id: int, refresh_interval: int, time_to_keep: in
                         responseTime=response_time,
                         status=status,
                         endpointId=endpoint.uid,
-                        timestamp=start_time
                     )
                     db.add(log)
                     
                     endpoint_statuses.append(status)
-                    
+                    # Determine the stability of each endpoint 
                     endpoint.status = determine_stability(endpoint.uid, db)
-                
-                app.status = "Stable" if all(endpoint.status == "Stable" for endpoint in app.endpoints) else "Unstable" if any(endpoint.status in ["Unstable", "Down"] for endpoint in app.endpoints) else "Down"
-                if app.bugs:
+                # The app is stable if 
+                app.status = "Stable" if all(endpoint.status == "Stable" for endpoint in app.endpoints) else "Unstable" if any(endpoint.status in ["Unstable"] for endpoint in app.endpoints) else "Down"
+                if app.bugs and app.status == "Unstable":
+                    app.status = "Down"
+                else:
                     app.status = "Unstable"
                 db.add(app)
                 db.commit()
