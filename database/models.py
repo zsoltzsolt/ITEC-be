@@ -22,6 +22,7 @@ class DbApplication(Base):
     
     endpoints = relationship("DbEndpoint", back_populates="application", cascade="all, delete")
     
+    
 class DbIpInfo(Base):
     __tablename__ = "ipInfo"
     uid = Column(Integer, primary_key=True, index=True)
@@ -31,6 +32,7 @@ class DbIpInfo(Base):
     
     applicationId = Column(Integer, ForeignKey('application.uid', ondelete='CASCADE'))
     application = relationship("DbApplication", back_populates="ipInfo", cascade="all, delete", uselist=False)
+    
     
 class DbEndpointLog(Base):
     __tablename__ = "endpointLog"
@@ -53,6 +55,7 @@ class DbUser(Base):
     
     developedApplications = relationship("DbApplication", back_populates="user", cascade="all, delete", overlaps="owner")
 
+
 class DbBug(Base):
     __tablename__ = "bug"
     uid = Column(Integer, index=True, primary_key=True)
@@ -61,6 +64,7 @@ class DbBug(Base):
     
     applicationId = Column(Integer, ForeignKey('application.uid', ondelete='CASCADE'))
     application = relationship("DbApplication", back_populates="bugs", cascade="all, delete")
+
 
 class DbEndpoint(Base):
     __tablename__ = "endpoint"

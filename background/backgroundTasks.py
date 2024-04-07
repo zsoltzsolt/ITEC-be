@@ -4,10 +4,10 @@ from database.models import DbApplication
 from routers.application import monitor_endpoints, time_to_seconds
 
 router = APIRouter(
-    prefix="",  # Removed the trailing slash
+    prefix="",  
     tags=["Background"]
 )
-
+# Start tasks on startup
 @router.on_event("startup")
 async def startup_event(background_tasks: BackgroundTasks, db: Session = None):
     if db is None:
