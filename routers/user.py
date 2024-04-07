@@ -5,6 +5,8 @@ from routers.schemas import UserProfile
 from sqlalchemy.orm.session import Session
 from database.database import get_db
 from database.models import DbUser
+from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import session
 
 router = APIRouter(
     prefix = "/user-profile",
@@ -13,6 +15,7 @@ router = APIRouter(
 
 @router.get("/me")
 async def get_profile(db: Session = Depends(get_db), payload = Depends(get_payload)) -> UserProfile:
+    print("here")
     token = payload.get("sub")
     user = db.query(DbUser).filter(DbUser.keyclockId == token).first()
     if(user is None):
@@ -23,4 +26,5 @@ async def get_profile(db: Session = Depends(get_db), payload = Depends(get_paylo
         db.add(user)
         db.commit()
         db.refresh(user)
-    return UserProfile(uid=user.uid, username=user.username, keyclockId=user.keyclockId)
+    user = db.query(DbUser).options(joinedload(DbUser.addedApplications), joinedload(DbUser.developedApplications)).filter(DbUser.keyclockId == token).first()
+    return user
