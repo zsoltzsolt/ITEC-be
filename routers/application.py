@@ -92,7 +92,7 @@ async def websocket_endpoint(id: int, websocket: WebSocket, db: Session = Depend
                     "refreshInterval": f"{refreshInterval}",
                     "timeToKeep": f"{last_app.timeToKeep}",
                     "userId": last_app.userId,
-                    "bugs": [{"bug_id": bug.uid, "description": bug.description} for bug in last_app.bugs],
+                    "bugs": [{"bug_id": bug.uid, "description": bug.description, "timestamp": str(bug.timestamp)} for bug in last_app.bugs],
                     "endpoints": []
                 }
             
