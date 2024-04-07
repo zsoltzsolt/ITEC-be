@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, WebSocket
 from sqlalchemy.orm import Session
-from routers.schemas import Application, UserProfile
+from routers.schemas import Application, UserProfile, Endpoint
 from database.database import get_db
 from database.models import DbApplication, DbEndpoint, DbIpInfo, DbUser, DbEndpointLog
 from typing import List
@@ -19,6 +19,50 @@ router = APIRouter(
     tags=["Application"]
 )
 
+from datetime import datetime, timedelta
+
+def calculate_downtime_minutes(app: Application) -> float:
+    total_downtime = 0.0
+    
+    for endpoint in app.endpoints:
+        for log in endpoint.log:
+            if log.status != '200':
+                downtime_start = log.timestamp
+                downtime_end = downtime_start
+                
+                for subsequent_log in endpoint.log:
+                    if subsequent_log.timestamp > downtime_end:
+                        if subsequent_log.status == '200':
+                            break
+                        else:
+                            downtime_end = subsequent_log.timestamp
+                
+                if downtime_end > downtime_start:
+                    downtime_duration = (downtime_end - downtime_start).total_seconds() / 60.0
+                    total_downtime += downtime_duration
+    
+    return total_downtime
+
+
+    
+
+
+def time_to_seconds(time_str: str) -> int:
+    parts = time_str.split()
+    if len(parts) != 2:
+        raise ValueError("Invalid time format. Expected format: 'X sec' or 'Y min'")
+    value, unit = int(parts[0]), parts[1].lower()
+    if unit == 'sec':
+        return value
+    elif unit == 'min':
+        return value * 60
+    elif unit == 'hours':
+        return value * 60 * 60
+    elif unit == 'days':
+        return value * 60 * 60 * 24
+    elif unit == 'day':
+        return value * 60 * 60 * 24
+    else:
         raise ValueError("Invalid time unit. Expected 'sec' or 'min'")
 
 @router.websocket("/{id}")
@@ -27,7 +71,7 @@ async def websocket_endpoint(id: int, websocket: WebSocket, db: Session = Depend
     while True:
         try:
             last_app: Application = db.query(DbApplication).filter(DbApplication.uid == id).order_by(DbApplication.uid.desc()).first()
-        
+            db.refresh(last_app)
             refreshInterval = last_app.refreshInterval
             await asyncio.sleep(0.95 * time_to_seconds(refreshInterval))
         
@@ -37,6 +81,7 @@ async def websocket_endpoint(id: int, websocket: WebSocket, db: Session = Depend
                     "name": last_app.name,
                     "status": last_app.status,
                     "baseUrl": last_app.baseUrl,
+                    "downTime": calculate_downtime_minutes(last_app),
                     "ipInfo": {
                         "uid": last_app.ipInfo.uid,
                         "address": last_app.ipInfo.address,
@@ -44,10 +89,10 @@ async def websocket_endpoint(id: int, websocket: WebSocket, db: Session = Depend
                         "timezone": last_app.ipInfo.timezone,
                         "applicationId": last_app.ipInfo.applicationId
                     },
-                    "refreshInterval": f"{refreshInterval} sec",
-                    "timeToKeep": f"{last_app.timeToKeep} day",
+                    "refreshInterval": f"{refreshInterval}",
+                    "timeToKeep": f"{last_app.timeToKeep}",
                     "userId": last_app.userId,
-                    "bugs": [],
+                    "bugs": [{"bug_id": bug.uid, "description": bug.description} for bug in last_app.bugs],
                     "endpoints": []
                 }
             
@@ -98,23 +143,29 @@ def determine_stability(endpointId: int, db: Session):
     endpoint = db.query(DbEndpoint).options(joinedload(DbEndpoint.log)).filter(DbEndpoint.uid == endpointId).first()
     if endpoint:
         log_statuses = [log.status for log in endpoint.log[-10:]] 
+        print(log_statuses)
         if all(status in ['200', '302'] for status in log_statuses):
             return "Stable"
-        elif any(status not in ['200', '302'] for status in log_statuses):
+        elif all(status not in ['200', '302'] for status in log_statuses):
+            return "Down"
+        else:
             return "Unstable"
     else:
         return "Endpoint not found"
 
 
+# Function to monitor endpoints and update their status
 async def monitor_endpoints(app_id: int, refresh_interval: int, time_to_keep: int, db: Session):
-    print(f"{app_id}")
     while True:
         try:
             await asyncio.sleep(refresh_interval)
             app = db.query(DbApplication).filter(DbApplication.uid == app_id).first()
             if app:
                 current_time = datetime.utcnow()
+                endpoint_statuses = []
+                
                 for endpoint in app.endpoints:
+                    status = 200  # Default status
                     relativeUrl = endpoint.relativeUrl
                     if relativeUrl[0] == '/':
                         relativeUrl = relativeUrl[1:]
@@ -127,8 +178,11 @@ async def monitor_endpoints(app_id: int, refresh_interval: int, time_to_keep: in
                         response_time = response.elapsed.total_seconds()
                         status = response.status_code
                     except requests.RequestException as e:
-                        response_time = response.elapsed.total_seconds()
-                        status = response.status_code
+                        # If there's an exception, consider the status as 500
+                        response_time = 0
+                        status = 500  
+                    
+                    # Update endpoint log
                     log = DbEndpointLog(
                         responseTime=response_time,
                         status=status,
@@ -136,14 +190,22 @@ async def monitor_endpoints(app_id: int, refresh_interval: int, time_to_keep: in
                         timestamp=start_time
                     )
                     db.add(log)
-            
                     
-                state = "Down"
-                if endpoint.log:
-                    state = determine_stability(endpoint.uid, db)
-                app.status = state
+                    # Append status to the list of endpoint statuses
+                    endpoint_statuses.append(status)
+                    
+                    # Determine stability of the endpoint
+                    endpoint.status = determine_stability(endpoint.uid, db)
+                
+                # Update application status based on the collective statuses of endpoints
+                app.status = "Stable" if all(endpoint.status == "Stable" for endpoint in app.endpoints) else "Unstable" if any(endpoint.status in ["Unstable", "Down"] for endpoint in app.endpoints) else "Down"
+                if app.bugs:
+                    app.status = "Unstable"
+                db.add(app)
                 db.commit()
-                    
+                db.refresh(app)
+                
+                # Delete old logs
                 oldest_allowed_time = current_time - timedelta(seconds=time_to_keep)
                 db.query(DbEndpointLog).filter(
                     DbEndpointLog.timestamp < oldest_allowed_time,
@@ -155,10 +217,16 @@ async def monitor_endpoints(app_id: int, refresh_interval: int, time_to_keep: in
                 break
         except Exception as e:
             print(f"An error occurred: {e}")
-            state = "Down"
-            app.status = state
-            db.commit()
+            # If an error occurs, set application status to "Down"
+            if app:
+                app.status = "Down"
+                db.add(app)
+                db.commit()
+                db.refresh(app)
             continue
+
+
+
 
 async def monitor_and_start(app_id: int, refresh_interval: int, time_to_keep: int, db: Session):
     await monitor_endpoints(app_id, refresh_interval, time_to_keep, db)
@@ -239,14 +307,6 @@ def search_application(query: str, db: Session = Depends(get_db)):
     return apps
 
 
-from sqlalchemy.orm import joinedload
-from sqlalchemy import desc
-
-from sqlalchemy import desc
-
-from sqlalchemy.orm import joinedload
-from sqlalchemy import desc
-
 @router.get("/{id}")
 def get_application(id: int, db: Session = Depends(get_db)) -> Application:
     app = db.query(DbApplication).options(
@@ -260,7 +320,29 @@ def get_application(id: int, db: Session = Depends(get_db)) -> Application:
     raise HTTPException(status_code=400, detail="App with this id does not exist")
 
 
+def pydantic_to_db_endpoint(endpoint: Endpoint) -> DbEndpoint:
+    db_endpoint = DbEndpoint(
+        uid=endpoint.uid,
+        relativeUrl=endpoint.relativeUrl,
+        status=endpoint.status,
+        applicationId=endpoint.applicationId
+    )
+
+    # Convert Pydantic logs to SQLAlchemy logs
+    db_logs = []
+    for log in endpoint.log:
+        db_log = DbEndpointLog(
+            uid=log.uid,
+            responseTime=log.responseTime,
+            status=log.status,
+            endpointId=log.endpointId,
+            timestamp=log.timestamp
+        )
+        db_logs.append(db_log)
     
+    db_endpoint.log = db_logs
+
+    return db_endpoint  
 
 
 @router.put("/{id}")
@@ -268,9 +350,10 @@ def edit_application(id: int, item: Application, db: Session = Depends(get_db)) 
     app = db.query(DbApplication).options(joinedload(DbApplication.endpoints)).filter(DbApplication.uid == id).first()
     if app:
         app.name = item.name
-        app.endpoints.clear()
-        app.endpoints.extend(item.endpoints)
+        app.endpoints = [pydantic_to_db_endpoint(endpoint) for endpoint in item.endpoints]
         app.baseUrl = item.baseUrl
+        app.refreshInterval = item.refreshInterval
+        app.timeToKeep = item.timeToKeep
         
         db.commit()
         
