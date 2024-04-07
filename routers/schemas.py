@@ -5,7 +5,7 @@ from datetime import datetime
 class Bug(BaseModel):
     uid: int = None
     description: str
-    timestamp: str = None
+    timestamp: datetime = datetime.utcnow() 
     applicationId: int = None
     
     class Config:

@@ -56,7 +56,6 @@ class DbUser(Base):
 class DbBug(Base):
     __tablename__ = "bug"
     uid = Column(Integer, index=True, primary_key=True)
-    categoryId = Column(Integer)
     description = Column(String)
     timestamp = Column(DateTime, default=datetime.utcnow)
     

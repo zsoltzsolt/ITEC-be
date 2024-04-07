@@ -2,7 +2,7 @@ from fastapi import FastAPI, Depends, BackgroundTasks, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from database.database import engine, get_db
 from database.models import DbApplication 
-from routers import application, user
+from routers import application, user, bug
 from auth.auth import get_user_info
 from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
@@ -22,6 +22,7 @@ app.add_middleware(
 
 app.include_router(user.router)
 app.include_router(application.router)
+app.include_router(bug.router)
 
 @app.get("/")
 def route():
