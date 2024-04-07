@@ -62,22 +62,11 @@ def calculate_downtime_minutes(app: Application) -> float:
     
     for endpoint in app.endpoints:
         for log in endpoint.log:
-            if log.status != '200':
-                downtime_start = log.timestamp
-                downtime_end = downtime_start
+            if log.status != '200' or log.status != '302':
+                total_downtime = total_downtime + 1 
                 
-                for subsequent_log in endpoint.log:
-                    if subsequent_log.timestamp > downtime_end:
-                        if subsequent_log.status == '200':
-                            break
-                        else:
-                            downtime_end = subsequent_log.timestamp
-                
-                if downtime_end > downtime_start:
-                    downtime_duration = (downtime_end - downtime_start).total_seconds() / 60.0
-                    total_downtime += downtime_duration
     
-    return total_downtime
+    return total_downtime * app.refreshInterval
 
 def time_to_seconds(time_str: str) -> int:
     parts = time_str.split()
