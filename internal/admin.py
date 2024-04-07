@@ -1,2 +1,2 @@
-DB_PATH = "postgresql://postgres:postgres@192.168.77.50/postgres"
+DB_PATH = "postgresql://postgres:postgres@localhost/ITEC2024"
 KEYCLOAK_URL = "https://keycloak.gonemesis.org"

@@ -78,6 +78,7 @@ async def monitor_endpoints(app_id: int, refresh_interval: int, time_to_keep: in
                 db.refresh(app)
                 
                 # Delete old logs
+                current_time = datetime.utcnow()
                 oldest_allowed_time = current_time - timedelta(seconds=time_to_keep)
                 db.query(DbEndpointLog).filter(
                     DbEndpointLog.timestamp < oldest_allowed_time,
